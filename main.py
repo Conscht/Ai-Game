@@ -11,6 +11,7 @@ from gymnasium.spaces import Box, Discrete
 import pyautogui
 import time
 from Trainer import TrainAndLoggingCallback
+import tensorflow as tf
 
 
 class WorldEnv(Env):
@@ -18,14 +19,13 @@ class WorldEnv(Env):
         super().__init__()
         self.action_space = Discrete(3)
         self.cap = mss()
-        self.observation_space = Box(low = 0, high = 255, shape=(1,100,100), dtype=np.uint8)
-        self.gamelocation = {'top' : 550, 'left' : 800,'width' : 600, 'height' : 400}
-        self.doneLocation = {'top' : 600, 'left' : 1100,'width' : 400, 'height' : 150}
+        self.observation_space = Box(low = 0, high = 255, shape=(1,100,120), dtype=np.uint8)
+        self.gamelocation = {'top' : 600, 'left' : 0,'width' : 1200, 'height' : 700}
+        self.doneLocation = {'top' : 550, 'left' : 800,'width' : 600, 'height' : 400}
     
 
-    def reset(self , seed=None, options=None):
-        time.sleep(1)
-        pydirectinput.leftClick(1422, 797)
+    def reset(self , seed=None, options=None): 
+        pydirectinput.leftClick(1422, 797)  
         info = {}
         return self.get_observation(), info
 
@@ -50,9 +50,9 @@ class WorldEnv(Env):
 
     def get_observation(self):  
         pic = np.array(self.cap.grab(self.gamelocation))[:,:,:3].astype(np.uint8)
-        gray = cv.cvtColor(pic, cv.COLOR_BGR2GRAY)
-        resized = cv.resize(gray, (100, 100))
-        channel = np.reshape(resized, (1, 100, 100)) #channel has to be first for pytorch
+        gray = cv.cvtColor(pic, cv.COLOR_BGR2GRAY) 
+        resized = cv.resize(gray, (120, 100))
+        channel = np.reshape(resized, (1, 100, 120)) #channel has to be first for pytorch
         return channel
 
 
@@ -71,23 +71,26 @@ env = WorldEnv()
 x, y = pyautogui.position()
 print(x, y)
 
-
-  
+# plt.imshow(env.get_observation())
+# plt.show()
+   
 episodes = 0
 
 #Training loops. DO each episode till dino dies
 for episode in range(1, episodes+1):
     obs = env.reset()
     done = False
-    totalscore = 0
-
-    while not done:
+    totalscore = 0  
+ 
+    while not done: 
 
         obs, score, done, info = env.step(env.action_space.sample()) 
         totalscore += score
-    print('Epsidoe:', episode, 'Reward:', totalscore )
-
+    print('Epsidoe:', episode, 'Reward:', totalscore )  
+ 
 from stable_baselines3.common import env_checker
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 # Check if Env is viable
 env_checker.check_env(env)
@@ -95,10 +98,22 @@ env = WorldEnv()
 
 logDir = './logs/'
 checkpoint = './models/'       
-callback = TrainAndLoggingCallback(check_freq=100, save_path=checkpoint)
+callback = TrainAndLoggingCallback(check_freq=1000, save_path=checkpoint) 
 
-from stable_baselines3 import DQN   
-model = DQN('CnnPolicy', env, tensorboard_log=logDir, verbose=1, buffer_size=1200000, learning_starts=100)
+from stable_baselines3 import DQN       
+# model = DQN('CnnPolicy', env, tensorboard_log=logDir, verbose=1, buffer_size=1200000, learning_starts=1000)
 
-model.learn(total_timesteps=5000, callback=callback) 
-model.load('train_first/best_mode_')   
+# model.learn(total_timesteps=250000, callback=callback) 
+m1 = DQN.load('./models/bestModel44000.zip')   
+
+episodes = 10
+for episode in range(1, episodes+1):
+    obs = env.reset()
+    done = False 
+    obs= env.get_observation()  
+   
+    while not done:    
+        action, _ = m1.predict(obs, deterministic=True) 
+        action  = int(action)
+        obs, _, done, _, _ = env.step(action)
+    print('Loop vorbei' )                       
