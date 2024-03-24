@@ -1,0 +1,23 @@
+from enviroment import WorldEnv
+from trainer import TrainAndLoggingCallback
+from stable_baselines3.common import env_checker
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from stable_baselines3 import DQN     
+
+# Create enviroment
+env = WorldEnv()
+
+# Check if Env is viable
+env_checker.check_env(env)
+
+#Select folder Paths
+logDir = './logs/'
+checkpoint = './models/'  
+
+#Add callback
+callback = TrainAndLoggingCallback(check_freq=1000, save_path=checkpoint) 
+           
+#Create DQN Model with out env and let it learn
+model = DQN('CnnPolicy', env, tensorboard_log=logDir, verbose=1, buffer_size=1200000, learning_starts=1000)
+model.learn(total_timesteps=250000, callback=callback)   
